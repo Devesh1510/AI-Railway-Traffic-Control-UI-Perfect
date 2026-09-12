@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Railway Traffic Control – Pune Division</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/station.css" />
+  <link rel="stylesheet" href="css/analytics.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ══ HEADER ══════════════════════════════════════════════════════════════ -->
+<header id="header">
+  <div class="header-left">
+    <h1>&#9651; AI RAILWAY TRAFFIC CONTROL SYSTEM</h1>
+    <p class="subtitle">PUNE DIVISION &bull; CENTRAL RAILWAY &bull; INTEGRATED CONTROL CENTER</p>
+  </div>
+
+  <div class="sim-clock" id="simClock">14:00:00</div>
+
+  <div class="header-right">
+    <div class="live-indicator">
+      <span class="live-dot"></span>LIVE SIMULATION
+    </div>
+    <div class="sim-controls">
+      <span class="speed-label">SPEED:</span>
+      <button class="ctrl-btn" data-speed="0.5" onclick="setSpeed(0.5, this)">0.5×</button>
+      <button class="ctrl-btn active" data-speed="1"   onclick="setSpeed(1, this)">1×</button>
+      <button class="ctrl-btn" data-speed="2"   onclick="setSpeed(2, this)">2×</button>
+      <button class="ctrl-btn reset-btn"         onclick="resetSim()">&#8635; RESET</button>
+    </div>
+  </div>
+</header>
+
+<!-- ══ TABS ════════════════════════════════════════════════════════════════ -->
+<nav id="tab-nav">
+  <button class="tab-btn active" data-tab="dapodi"    onclick="switchTab('dapodi', this)">&#9646; DAPODI STATION</button>
+  <button class="tab-btn"        data-tab="khadki"    onclick="switchTab('khadki', this)">&#9646; KHADKI STATION</button>
+  <button class="tab-btn"        data-tab="analytics" onclick="switchTab('analytics', this)">&#9646; ANALYTICS</button>
+</nav>
+
+<!-- ══ DAPODI TAB ══════════════════════════════════════════════════════════ -->
+<section id="tab-dapodi" class="tab-content active">
+  <div class="station-container">
+
+    <div class="station-header">
+      <div>
+        <div class="station-name">&#9650; DAPODI STATION — PUNE DIVISION / CENTRAL RAILWAY</div>
+        <div class="station-meta">Station Code: DAPD &bull; 2 Platforms &bull; Double Line Section &bull; 25kV AC</div>
+      </div>
+      <div class="station-tag">BLOCK SECTION: KASARWADI ↔ KHADKI</div>
+    </div>
+
+    <div class="direction-bar">
+      <span>&larr; TOWARDS MUMBAI (UP)</span>
+      <span class="station-center-label">&#9733; DAPODI</span>
+      <span>TOWARDS PUNE (DN) &rarr;</span>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="dapodiCanvas" width="1160" height="320"></canvas>
+    </div>
+
+    <div class="info-panels">
+
+      <div class="info-panel">
+        <h3>TRAIN STATUS</h3>
+        <div id="dapodiTrainStatus"></div>
+      </div>
+
+      <div class="info-panel">
+        <h3>SIGNAL STATUS</h3>
+        <div id="dapodiSignalStatus"></div>
+      </div>
+
+      <div class="info-panel">
+        <h3>STATION METRICS</h3>
+        <div class="stat-grid">
+          <div class="stat-item"><div class="stat-val">4</div><div class="stat-lbl">TRAINS TODAY</div></div>
+          <div class="stat-item"><div class="stat-val" id="d-avg-delay">10</div><div class="stat-lbl">AVG DELAY (MIN)</div></div>
+          <div class="stat-item"><div class="stat-val">75%</div><div class="stat-lbl">PF UTILIZATION</div></div>
+          <div class="stat-item"><div class="stat-val" id="d-alerts">1</div><div class="stat-lbl">ACTIVE ALERTS</div></div>
+        </div>
+      </div>
+
+      <div class="info-panel">
+        <h3>SIGNAL LEGEND</h3>
+        <div class="signal-legend">
+          <div class="sig-item"><span class="sig-dot red"></span>RED – Danger / Stop</div>
+          <div class="sig-item"><span class="sig-dot yellow"></span>YELLOW – Caution</div>
+          <div class="sig-item"><span class="sig-dot green"></span>GREEN – Proceed</div>
+          <div class="sig-item"><span class="sig-dot orange"></span>ROUTE INDICATOR</div>
+        </div>
+        <div class="legend-note">H = Home Signal (4-aspect)<br>S = Starter Signal (2-aspect)</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══ KHADKI TAB ══════════════════════════════════════════════════════════ -->
+<section id="tab-khadki" class="tab-content">
+  <div class="station-container">
+
+    <div class="station-header">
+      <div>
+        <div class="station-name">&#9650; KHADKI STATION — PUNE DIVISION / CENTRAL RAILWAY</div>
+        <div class="station-meta">Station Code: KK &bull; 3 Platforms &bull; PF-2 Loop Line (Overtakes) &bull; 25kV AC</div>
+      </div>
+      <div class="station-tag">BLOCK SECTION: DAPODI ↔ SHIVAJINAGAR</div>
+    </div>
+
+    <div class="direction-bar">
+      <span>&larr; TOWARDS MUMBAI (UP)</span>
+      <span class="station-center-label">&#9733; KHADKI</span>
+      <span>TOWARDS PUNE (DN) &rarr;</span>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="khadkiCanvas" width="1160" height="380"></canvas>
+    </div>
+
+    <div class="info-panels">
+
+      <div class="info-panel">
+        <h3>TRAIN STATUS</h3>
+        <div id="khadkiTrainStatus"></div>
+      </div>
+
+      <div class="info-panel">
+        <h3>SIGNAL STATUS</h3>
+        <div id="khadkiSignalStatus"></div>
+      </div>
+
+      <div class="info-panel">
+        <h3>PLATFORM OCCUPATION</h3>
+        <div id="platformOccupation"></div>
+      </div>
+
+      <div class="info-panel">
+        <h3>STATION METRICS</h3>
+        <div class="stat-grid">
+          <div class="stat-item"><div class="stat-val">4</div><div class="stat-lbl">TRAINS TODAY</div></div>
+          <div class="stat-item"><div class="stat-val" id="k-avg-delay">13</div><div class="stat-lbl">AVG DELAY (MIN)</div></div>
+          <div class="stat-item"><div class="stat-val" id="k-halted">0</div><div class="stat-lbl">HALTED TRAINS</div></div>
+          <div class="stat-item"><div class="stat-val" id="k-alerts">2</div><div class="stat-lbl">ACTIVE ALERTS</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══ ANALYTICS TAB ═══════════════════════════════════════════════════════ -->
+<section id="tab-analytics" class="tab-content">
+  <div class="analytics-container">
+
+    <div class="analytics-topbar">
+      <div>
+        <div class="analytics-title">&#9651; ANALYTICS DASHBOARD</div>
+        <div class="analytics-subtitle">AI-Powered Traffic Analysis &bull; Pune Division &bull; Real-Time Data</div>
+      </div>
+      <button class="btn-pdf" onclick="exportPDF()">&#128438; EXPORT PDF REPORT</button>
+    </div>
+
+    <!-- Train summary table -->
+    <div class="a-card full-width">
+      <h3>&#9646; TRAIN SUMMARY</h3>
+      <div class="table-scroll">
+        <table id="trainSummaryTable">
+          <thead>
+            <tr>
+              <th>TRAIN NO.</th><th>NAME</th><th>TYPE</th><th>PRIORITY</th>
+              <th>COACHES</th><th>DIRECTION</th><th>DAPODI</th><th>KHADKI</th>
+            </tr>
+          </thead>
+          <tbody id="trainSummaryBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Delay table -->
+    <div class="a-card full-width">
+      <h3>&#9646; DELAY ANALYSIS</h3>
+      <div class="table-scroll">
+        <table id="delayTable">
+          <thead>
+            <tr>
+              <th>TRAIN NO.</th><th>NAME</th>
+              <th>SCHED (DAPODI)</th><th>ACTUAL (DAPODI)</th><th>DELAY DAPODI</th>
+              <th>SCHED (KHADKI)</th><th>ACTUAL (KHADKI)</th><th>DELAY KHADKI</th>
+              <th>CAUSE</th>
+            </tr>
+          </thead>
+          <tbody id="delayTableBody"></tbody>
+          <tfoot id="delayTableFoot"></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- Charts row 1 -->
+    <div class="analytics-grid">
+      <div class="a-card">
+        <h3>&#9646; DELAY PER TRAIN – BAR</h3>
+        <div class="chart-wrap"><canvas id="chartDelay"></canvas></div>
+      </div>
+      <div class="a-card">
+        <h3>&#9646; DELAY PROGRESSION – LINE</h3>
+        <div class="chart-wrap"><canvas id="chartLine"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Charts row 2 -->
+    <div class="analytics-grid">
+      <div class="a-card">
+        <h3>&#9646; DELAY CAUSES – DOUGHNUT</h3>
+        <div class="chart-wrap"><canvas id="chartPie"></canvas></div>
+      </div>
+      <div class="a-card">
+        <h3>&#9646; STATION TRAFFIC FLOW – GROUPED BAR</h3>
+        <div class="chart-wrap"><canvas id="chartTimeline"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Station analysis -->
+    <div class="analytics-grid">
+      <div class="a-card" id="dapodiAnalysis">
+        <h3>&#9646; DAPODI STATION ANALYSIS</h3>
+        <div id="dapodiAnalysisBody"></div>
+      </div>
+      <div class="a-card" id="khadkiAnalysis">
+        <h3>&#9646; KHADKI STATION ANALYSIS</h3>
+        <div id="khadkiAnalysisBody"></div>
+      </div>
+    </div>
+
+    <!-- AI Insights -->
+    <div class="a-card full-width">
+      <h3>&#9646; AI INSIGHTS &amp; RECOMMENDATIONS</h3>
+      <div id="aiInsightsBody"></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ SCRIPTS ══════════════════════════════════════════════════════════════ -->
+<!-- roundRect polyfill for browsers that don't support it natively -->
+<script>
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    if (typeof r === 'number') r = [r, r, r, r];
+    else if (!r) r = [0,0,0,0];
+    const [tl, tr, br, bl] = [r[0]||0, r[1]||0, r[2]||0, r[3]||0];
+    this.beginPath();
+    this.moveTo(x + tl, y);
+    this.lineTo(x + w - tr, y);
+    this.quadraticCurveTo(x + w, y, x + w, y + tr);
+    this.lineTo(x + w, y + h - br);
+    this.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+    this.lineTo(x + bl, y + h);
+    this.quadraticCurveTo(x, y + h, x, y + h - bl);
+    this.lineTo(x, y + tl);
+    this.quadraticCurveTo(x, y, x + tl, y);
+    this.closePath();
+  };
+}
+</script>
+<script src="js/api.js"></script>
+<script src="js/signals.js"></script>
+<script src="js/dapodi.js"></script>
+<script src="js/khadki.js"></script>
+<script src="js/analytics.js"></script>
+<script src="js/simulation.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>

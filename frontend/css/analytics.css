@@ -1,0 +1,157 @@
+/* ============================================================
+   ANALYTICS.CSS – Analytics tab, tables, charts, AI insights
+   ============================================================ */
+
+.analytics-container {
+  padding: 14px;
+  background: var(--bg-dark);
+  min-height: calc(100vh - 104px);
+}
+
+/* ── TOP BAR ────────────────────────────────────────────── */
+.analytics-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.analytics-title {
+  font-size: 16px;
+  color: #ffaa00;
+  letter-spacing: 2px;
+  font-weight: bold;
+}
+
+.analytics-subtitle {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  letter-spacing: 1px;
+}
+
+/* ── CARDS ──────────────────────────────────────────────── */
+.a-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.a-card h3 {
+  font-size: 12px;
+  color: #00aacc;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.full-width { grid-column: 1 / -1; }
+
+@media (max-width: 760px) {
+  .analytics-grid { grid-template-columns: 1fr; }
+}
+
+/* ── TABLES ─────────────────────────────────────────────── */
+.table-scroll { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+thead th {
+  background: #0a1830;
+  color: #5599bb;
+  padding: 7px 10px;
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--border);
+}
+
+tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #0d1a28;
+  color: #ccdde8;
+}
+
+tbody tr:hover td { background: var(--bg-hover); }
+
+tfoot td {
+  padding: 7px 10px;
+  background: #0a1530;
+  color: var(--yellow);
+  font-weight: bold;
+  border-top: 2px solid var(--border);
+  font-size: 11px;
+}
+
+/* ── CHARTS ─────────────────────────────────────────────── */
+.chart-wrap {
+  position: relative;
+  height: 220px;
+}
+
+/* ── STATION ANALYSIS GRIDS ─────────────────────────────── */
+.analysis-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.analysis-note {
+  font-size: 11px;
+  color: #8899aa;
+  line-height: 1.6;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: #081018;
+  border-radius: 3px;
+  border-left: 3px solid var(--border);
+}
+
+/* ── AI INSIGHTS ────────────────────────────────────────── */
+.ai-insight-item {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  background: #0a1020;
+  border-radius: 4px;
+  border-left: 3px solid var(--cyan);
+  transition: background 0.2s;
+}
+
+.ai-insight-item:hover { background: #0d1828; }
+.ai-insight-item.warning  { border-left-color: #ffaa00; }
+.ai-insight-item.critical { border-left-color: var(--red); }
+.ai-insight-item.success  { border-left-color: var(--green); }
+
+.ai-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.ai-text {
+  font-size: 11px;
+  line-height: 1.65;
+  color: #aabbcc;
+}
+
+.ai-text strong { color: #ddeeff; }

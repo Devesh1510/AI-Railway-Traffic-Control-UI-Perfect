@@ -1,0 +1,268 @@
+/* ============================================================
+   MAIN.CSS – Global styles, header, tabs, controls
+   AI Railway Traffic Control System
+   ============================================================ */
+
+*, *::before, *::after {
+  margin: 0; padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-deep:    #050a10;
+  --bg-dark:    #080c14;
+  --bg-panel:   #0d1825;
+  --bg-hover:   #0d1e30;
+  --border:     #1a3050;
+  --border-dim: #112233;
+
+  --text-main:  #e0e0e0;
+  --text-dim:   #7799aa;
+  --text-muted: #446677;
+
+  --cyan:       #00ccff;
+  --cyan-dim:   #00ccff44;
+  --green:      #00ff88;
+  --green-dim:  #00ff8844;
+  --yellow:     #ffcc00;
+  --orange:     #ff8800;
+  --red:        #ff4444;
+  --blue:       #4488ff;
+
+  --sig-red:    #ff2222;
+  --sig-yellow: #ffee00;
+  --sig-green:  #00ff44;
+  --sig-orange: #ff9900;
+}
+
+html, body {
+  background: var(--bg-deep);
+  color: var(--text-main);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* ── HEADER ─────────────────────────────────────────────── */
+#header {
+  background: linear-gradient(90deg, #0d1b2a 0%, #1a2a3a 50%, #0d1b2a 100%);
+  border-bottom: 2px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+#header h1 {
+  font-size: 17px;
+  color: var(--cyan);
+  text-shadow: 0 0 10px #00ccff66;
+  letter-spacing: 2px;
+}
+
+.subtitle {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  letter-spacing: 1px;
+}
+
+/* ── CLOCK ──────────────────────────────────────────────── */
+.sim-clock {
+  font-size: 22px;
+  color: var(--yellow);
+  font-weight: bold;
+  letter-spacing: 4px;
+  text-shadow: 0 0 10px #ffcc0044;
+  min-width: 120px;
+  text-align: center;
+}
+
+/* ── LIVE INDICATOR ─────────────────────────────────────── */
+.header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--green);
+  letter-spacing: 1px;
+}
+
+.live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 1.3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 7px var(--green); }
+  50%       { opacity: 0.3; box-shadow: none; }
+}
+
+/* ── SIM CONTROLS ───────────────────────────────────────── */
+.sim-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.speed-label {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.ctrl-btn {
+  padding: 4px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: #88aacc;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  transition: all 0.18s;
+}
+
+.ctrl-btn:hover { background: #1a2f4a; color: #aaccee; }
+.ctrl-btn.active { background: #0a3020; color: var(--green); border-color: var(--green-dim); }
+
+.reset-btn { color: #ffaa66 !important; border-color: #ff880033; }
+.reset-btn:hover { background: #2a1500; }
+
+/* ── TABS ───────────────────────────────────────────────── */
+#tab-nav {
+  display: flex;
+  background: #0d1520;
+  border-bottom: 1px solid var(--border-dim);
+  padding: 0 10px;
+}
+
+.tab-btn {
+  padding: 10px 26px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: #557799;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: 1px;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab-btn:hover  { color: #aaccee; }
+.tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); text-shadow: 0 0 8px #00ccff44; }
+
+/* ── TAB CONTENT ────────────────────────────────────────── */
+/* Use visibility+position instead of display:none so hidden canvases
+   still exist in layout and can be drawn to by the animation loop. */
+.tab-content {
+  display: none;
+  visibility: hidden;
+  position: absolute;
+  pointer-events: none;
+  width: 100%;
+}
+.tab-content.active {
+  display: block;
+  visibility: visible;
+  position: static;
+  pointer-events: auto;
+}
+
+/* ── STAT GRID ──────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.stat-item {
+  background: #081018;
+  border: 1px solid #1a2a3a;
+  border-radius: 3px;
+  padding: 6px 10px;
+}
+
+.stat-val {
+  font-size: 20px;
+  color: var(--cyan);
+  font-weight: bold;
+}
+
+.stat-lbl {
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+/* ── BADGES ─────────────────────────────────────────────── */
+.badge-delay {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  background: #2a1500;
+  color: #ff8800;
+  border: 1px solid #ff880044;
+}
+
+.badge-ontime {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  background: #002a10;
+  color: #00cc66;
+  border: 1px solid #00cc6644;
+}
+
+/* ── BUTTONS ────────────────────────────────────────────── */
+.btn-pdf {
+  padding: 9px 22px;
+  background: linear-gradient(135deg, #004488, #0066bb);
+  border: 1px solid #0088dd;
+  color: #aaddff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-pdf:hover {
+  background: linear-gradient(135deg, #005599, #0077cc);
+  color: #fff;
+  box-shadow: 0 0 14px #0088dd44;
+}
+
+/* ── PRINT STYLES ───────────────────────────────────────── */
+@media print {
+  #tab-nav, .sim-controls, .btn-pdf, .live-indicator, .live-dot { display: none !important; }
+  .tab-content { display: block !important; }
+  body, .analytics-container { background: #fff; color: #000; }
+  .a-card { border: 1px solid #ccc; background: #fff; page-break-inside: avoid; }
+  .a-card h3 { color: #003366; border-color: #003366; }
+  table th { background: #003366 !important; color: #fff !important; }
+  table td { color: #000; }
+  canvas { max-width: 100%; }
+  #header { background: #f0f4f8; border-color: #ccc; }
+  #header h1 { color: #003366; text-shadow: none; }
+  .sim-clock { color: #003366; text-shadow: none; }
+}
