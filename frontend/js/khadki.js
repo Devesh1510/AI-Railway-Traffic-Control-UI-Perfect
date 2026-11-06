@@ -1,10 +1,11 @@
 /**
  * khadki.js – Canvas drawing for Khadki Station
  *
- * Track layout (canvas 1160×380):
+ * Track layout (canvas 1160×420):
  *   PF1 (main through-line, top):   Y = 90   ← 17613 halts here
- *   PF2 (loop/overtake line, mid):  Y = 195  ← 14806 & 22225 overtake on this
- *   PF3 (bottom, UP direction):     Y = 280  ← 22106 Indrayani (Pune→Mumbai)
+ *   PF2 (loop/overtake line, mid):  Y = 195  ← 14806 overtakes / halts on this
+ *   PF3 (UP direction):             Y = 280  ← 22106 Indrayani (Pune→Mumbai)
+ *   PF4 (VB overtake, Scenario C):  Y = 365  ← 22225 VB passes below all in Sc-C
  *
  * Signal assignments:
  *   Approach (Mumbai side):  H1→PF1,  H7→PF2,  H6→PF3-area (below)
@@ -13,15 +14,17 @@
  */
 
 const K = {
-  W: 1160, H: 380,
+  W: 1160, H: 420,        // canvas height extended to 420 to fit PF4
   // Track Y centres
   Y_PF1: 90,
   Y_PF2: 195,
   Y_PF3: 280,
+  Y_PF4: 365,             // extra track for Scenario C VB overtake
   // Platform pixel boundaries (horizontal)
   PF1_X1: 280, PF1_X2: 900,
   PF2_X1: 300, PF2_X2: 880,
   PF3_X1: 310, PF3_X2: 870,
+  PF4_X1: 310, PF4_X2: 870,
   PF_H: 26,
   // Junction X positions
   J_L: 255,
@@ -93,11 +96,21 @@ function _drawKhadkiTracks(ctx) {
   ctx.beginPath(); ctx.moveTo(K.J_L - 80, K.Y_PF1); ctx.lineTo(K.J_L, K.Y_PF2); ctx.stroke();
   // PF3 diverges further left from main
   ctx.beginPath(); ctx.moveTo(K.J_L - 100, K.Y_PF1); ctx.lineTo(K.J_L, K.Y_PF3); ctx.stroke();
+  // PF4 diverges even further left (Scenario C VB track)
+  ctx.strokeStyle = '#3a5060';
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(K.J_L - 115, K.Y_PF1); ctx.lineTo(K.J_L, K.Y_PF4); ctx.stroke();
+  ctx.setLineDash([]);
 
   // ── Junction diverter lines (right side) ────────────────
+  ctx.strokeStyle = '#4a6070';
   ctx.beginPath(); ctx.moveTo(K.J_R, K.Y_PF1); ctx.lineTo(K.W, K.Y_PF1); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(K.J_R, K.Y_PF2); ctx.lineTo(K.J_R + 80, K.Y_PF1); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(K.J_R, K.Y_PF3); ctx.lineTo(K.J_R + 100, K.Y_PF1); ctx.stroke();
+  ctx.strokeStyle = '#3a5060';
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(K.J_R, K.Y_PF4); ctx.lineTo(K.J_R + 115, K.Y_PF1); ctx.stroke();
+  ctx.setLineDash([]);
 
   ctx.restore();
 
@@ -117,6 +130,11 @@ function _drawKhadkiTracks(ctx) {
   for (let x = K.J_L + 5; x < K.J_R; x += 26) {
     ctx.beginPath(); ctx.moveTo(x, K.Y_PF3 - 7); ctx.lineTo(x, K.Y_PF3 + 7); ctx.stroke();
   }
+  // PF4 between junctions (dashed sleepers to indicate bypass line)
+  ctx.strokeStyle = '#162030';
+  for (let x = K.J_L + 5; x < K.J_R; x += 26) {
+    ctx.beginPath(); ctx.moveTo(x, K.Y_PF4 - 7); ctx.lineTo(x, K.Y_PF4 + 7); ctx.stroke();
+  }
   ctx.restore();
 
   // ── Main rails ───────────────────────────────────────────
@@ -129,6 +147,10 @@ function _drawKhadkiTracks(ctx) {
   ctx.beginPath(); ctx.moveTo(K.J_L, K.Y_PF2); ctx.lineTo(K.J_R, K.Y_PF2); ctx.stroke();
   // PF3 between junctions
   ctx.beginPath(); ctx.moveTo(K.J_L, K.Y_PF3); ctx.lineTo(K.J_R, K.Y_PF3); ctx.stroke();
+  // PF4 between junctions (lighter – bypass/through line for VB in Sc-C)
+  ctx.strokeStyle = '#5a6e7e';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(K.J_L, K.Y_PF4); ctx.lineTo(K.J_R, K.Y_PF4); ctx.stroke();
   ctx.restore();
 }
 
@@ -154,18 +176,27 @@ function _drawAllPlatforms(ctx) {
     K.PF3_X2 - K.PF3_X1, K.PF_H,
     'PLATFORM  3  (PF3)'
   );
+  // PF4 – below track (VB bypass line in Scenario C only – shown dimmed)
+  _kPlatform(ctx,
+    K.PF4_X1, K.Y_PF4 + 8,
+    K.PF4_X2 - K.PF4_X1, K.PF_H,
+    'BYPASS LINE  (SC-C VB)',
+    true   // dim flag
+  );
 }
 
-function _kPlatform(ctx, x, y, w, h, label) {
+function _kPlatform(ctx, x, y, w, h, label, dim = false) {
   ctx.save();
-  ctx.fillStyle = '#192637';
-  ctx.strokeStyle = '#3a5a6a';
+  ctx.fillStyle   = dim ? '#101820' : '#192637';
+  ctx.strokeStyle = dim ? '#243040' : '#3a5a6a';
   ctx.lineWidth = 1.5;
+  if (dim) ctx.setLineDash([4, 4]);
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, 3);
   ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#5a6e7e';
-  ctx.font = 'bold 10px Courier New';
+  ctx.setLineDash([]);
+  ctx.fillStyle   = dim ? '#344a5a' : '#5a6e7e';
+  ctx.font = `bold 10px Courier New`;
   ctx.textAlign = 'center';
   ctx.fillText(label, x + w / 2, y + h / 2 + 4);
   ctx.restore();
@@ -212,19 +243,27 @@ function _drawKhadkiTrains(ctx, trainData) {
     }
   }
 
-  // ── 22225 Vande Bharat – PF2 (overtake) ─────────────────
+  // ── 22225 Vande Bharat – PF2 (Sc-A/B) or PF4 bypass (Sc-C) ─────────────
   const t3 = all.find(t => t.number === '22225');
   if (t3 && t3.khadki.active && !t3.khadki.done) {
-    const x = _clampX(t3.khadki.x, t3.length);
-    _kDrawTrain(ctx, x, K.Y_PF2, t3, false);
-    _kSpeedLabel(ctx, x + t3.length / 2, K.Y_PF2 - 28, t3.khadki.speed);
+    const x   = _clampX(t3.khadki.x, t3.length);
+    // In Scenario C the VB passes below both halted trains on the bypass line
+    const scId = window._scenarioId || 'A';
+    const vbY  = scId === 'C' ? K.Y_PF4 : K.Y_PF2;
+
+    _kDrawTrain(ctx, x, vbY, t3, false);
+    _kSpeedLabel(ctx, x + t3.length / 2, vbY - 28, t3.khadki.speed);
 
     const front = x + t3.length;
     if (front > K.PF2_X1 - 10 && x < K.PF2_X2 + 10) {
+      const label  = scId === 'C'
+        ? '⟳ VB  OVERTAKING  17613 + 14806  (BYPASS)'
+        : '⟳ VB  OVERTAKING  17613  (PF2)';
+      const labelY = scId === 'C' ? vbY - 30 : vbY - 46;
       _kOvertakeLabel(ctx,
-        Math.min(x + t3.length / 2, K.W - 140),
-        K.Y_PF2 - 46,
-        '⟳ VB  OVERTAKING  17613  (PF2)', '#ffdd00'
+        Math.min(x + t3.length / 2, K.W - 160),
+        labelY,
+        label, '#ffdd00'
       );
     }
   }

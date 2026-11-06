@@ -74,16 +74,14 @@ router.get('/', (req, res) => {
   };
 
   // ── Delay progression series (for line chart) ────────────────────────────
-  // Checkpoints: Origin, Dapodi, Post-OT1, Post-OT2, Khadki Exit
-  const delayProgression = {
-    labels: ['Origin', 'Dapodi', 'Post OT-1', 'Post OT-2', 'Khadki Exit'],
-    series: {
-      '17613': [20, 20, 25, 30, 30],
-      '14806': [ 0,  0,  0,  0,  0],
-      '22225': [15, 15, 15, 15, 15],
-      '22106': [ 5,  5,  5,  5,  5],
-    },
-  };
+  // Checkpoints: Origin → Dapodi → Post-OT1 → Post-OT2 → Khadki Exit
+  // Values are computed from live train state so the chart updates as
+  // overtakes happen rather than always showing the same hardcoded curve.
+  const delayProgression = computeDelayProgression(trainAnalytics, state);
+
+  // ── Delay causes breakdown (for doughnut chart) ─────────────────────────
+  // Computed from live train delays so the chart reflects the active scenario.
+  const delayCauses = computeDelayCauses(trainAnalytics, state);
 
   // ── AI insights ───────────────────────────────────────────────────────────
   const aiInsights = generateAIInsights(trainAnalytics, khadkiMetrics, state);
@@ -94,6 +92,7 @@ router.get('/', (req, res) => {
     dapodiMetrics,
     khadkiMetrics,
     delayProgression,
+    delayCauses,
     aiInsights,
     simTime: state.simTime,
     generatedAt: new Date().toISOString(),
@@ -175,6 +174,86 @@ function generateAIInsights(analytics, khadkiMetrics, state) {
              `Current scheduling for UP-direction trains is optimal.`,
     },
   ];
+}
+
+// ── Delay progression – computed from live state ─────────────────────────────
+// Reconstructs a 5-checkpoint delay curve for each train.
+// Checkpoints: Origin → Dapodi Arrival → Post-OT1 → Post-OT2 → Khadki Exit
+//
+// Logic per train:
+//   - Origin:     the train's base originating delay (static from definition)
+//   - Dapodi:     same as origin (no delay added at Dapodi in any scenario)
+//   - Post-OT1:   17613 gains +5 if ot1 happened (tracked via delayMin > origin+5)
+//   - Post-OT2:   17613 gains another +5 if ot2 happened
+//   - Khadki Exit: current live delayMin (may be mid-halt or post-release)
+//
+// For 14806, 22225, 22106 the curve is flat (their delay doesn't change
+// through the section in any scenario except Scenario C for 22106).
+function computeDelayProgression(trainAnalytics, state) {
+  const ORIGIN_DELAYS = { '17613': 20, '14806': 0, '22225': 15, '22106': 5 };
+  const labels = ['Origin', 'Dapodi', 'Post OT-1', 'Post OT-2', 'Khadki Exit'];
+  const series = {};
+
+  trainAnalytics.forEach(t => {
+    const origin   = ORIGIN_DELAYS[t.number] ?? t.dapodi.delay;
+    const liveDelay = t.khadki.delay; // current accumulated delay
+
+    if (t.number === '17613') {
+      // Reconstruct how far through the overtake sequence we are
+      const postOT1 = liveDelay > origin + 2  ? Math.max(origin + 5, liveDelay > origin + 7 ? origin + 5 : liveDelay) : origin;
+      const postOT2 = liveDelay > origin + 7  ? Math.max(origin + 10, liveDelay)                                       : postOT1;
+      const khadkiExit = liveDelay;
+      series[t.number] = [origin, origin, postOT1, postOT2, khadkiExit];
+    } else if (t.number === '22106') {
+      // Scenario C: Indrayani picks up extra delay waiting for VB to clear PF3
+      const extraDelay = Math.max(0, liveDelay - origin);
+      series[t.number] = [origin, origin, origin, origin + Math.round(extraDelay / 2), liveDelay];
+    } else {
+      // 14806 and 22225 – flat curve (no delay added through section)
+      series[t.number] = [origin, origin, origin, origin, liveDelay];
+    }
+  });
+
+  return { labels, series };
+}
+
+// ── Delay causes – computed from live state ───────────────────────────────────
+// Returns labels + values for the doughnut chart.
+// Buckets:
+//   Signal Hold      – 17613's originating delay sitting in signal hold
+//   Overtake Penalty – accumulated penalty minutes across all trains
+//   Originating Delay – delays trains brought in from origin (excl. 17613 signal hold)
+//   Technical Delay   – 22106 fixed technical delay + any Scenario C added delay
+function computeDelayCauses(trainAnalytics, state) {
+  const t17613 = trainAnalytics.find(t => t.number === '17613');
+  const t14806 = trainAnalytics.find(t => t.number === '14806');
+  const t22225 = trainAnalytics.find(t => t.number === '22225');
+  const t22106 = trainAnalytics.find(t => t.number === '22106');
+
+  // Signal hold = the originating 20 min that caused 17613 to be stopped
+  const signalHold = t17613 ? Math.min(t17613.khadki.delay, 20) : 0;
+
+  // Overtake penalty = everything above the originating 20 min for 17613,
+  // plus any extra delay added to 14806 or 22106 in Scenario C
+  const ot17613   = t17613 ? Math.max(0, t17613.khadki.delay - 20) : 0;
+  const ot14806   = t14806 ? Math.max(0, t14806.khadki.delay - 0)  : 0; // normally 0
+  const ot22106   = t22106 ? Math.max(0, t22106.khadki.delay - 5)  : 0; // Scenario C extra
+  const overtakePenalty = ot17613 + ot14806;
+
+  // Originating delay = 22225's flat delay (15 min – brought from origin)
+  const originDelay = t22225 ? t22225.khadki.delay : 15;
+
+  // Technical = 22106's base 5 min + any scenario C addition
+  const technical = t22106 ? Math.max(5, t22106.khadki.delay) : 5;
+
+  return {
+    labels: ['Signal Hold', 'Overtake Penalty', 'Originating Delay', 'Technical Delay'],
+    data:   [signalHold, overtakePenalty, originDelay, technical],
+    colors: {
+      background: ['#ff444488', '#ff880088', '#ffdd0088', '#44cc6688'],
+      border:     ['#ff4444',   '#ff8800',   '#ffdd00',   '#44cc66'],
+    },
+  };
 }
 
 module.exports = router;

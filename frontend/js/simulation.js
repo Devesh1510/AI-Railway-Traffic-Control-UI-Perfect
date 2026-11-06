@@ -18,17 +18,22 @@ let _dapodiCtx = null;
 let _khadkiCtx = null;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PUBLIC INIT
+// PUBLIC INIT – called by scenario.js AFTER scenario is chosen
 // ─────────────────────────────────────────────────────────────────────────────
 function initSimulation() {
   const dCanvas = document.getElementById('dapodiCanvas');
   const kCanvas = document.getElementById('khadkiCanvas');
 
   if (dCanvas) { dCanvas.width = 1160; dCanvas.height = 320; _dapodiCtx = dCanvas.getContext('2d'); }
-  if (kCanvas) { kCanvas.width = 1160; kCanvas.height = 380; _khadkiCtx = kCanvas.getContext('2d'); }
+  if (kCanvas) { kCanvas.width = 1160; kCanvas.height = 420; _khadkiCtx = kCanvas.getContext('2d'); }
 
-  OFFLINE.init();
-  _state = OFFLINE.getState();
+  // OFFLINE engine already initialised by scenario.js via OFFLINE.applyScenario()
+  // Only init here if somehow called without a scenario (fallback to Scenario A defaults)
+  if (!_state) {
+    OFFLINE.init();
+    _state = OFFLINE.getState();
+  }
+
   _startRenderLoop();
   _tryBackend();
 }
@@ -114,6 +119,10 @@ function _updateClock(simSecs) {
 // ─────────────────────────────────────────────────────────────────────────────
 // INFO PANELS
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Throttle metrics DOM writes — they only need to update ~4×/sec, not 60×/sec
+let _lastMetricsTs = 0;
+
 function _updateInfoPanels(trainMap, dSig, kSig) {
   const dEl = document.getElementById('dapodiTrainStatus');
   if (dEl) dEl.innerHTML = _trainStatusRows(trainMap, 'dapodi');
@@ -133,6 +142,92 @@ function _updateInfoPanels(trainMap, dSig, kSig) {
      {id:'H2',type:'home'},{id:'H5',type:'home'},{id:'H3',type:'home'},{id:'H4',type:'home'}], kSig);
 
   _updatePlatformBars(trainMap);
+
+  // Throttle metrics to 4 updates/sec
+  const now = Date.now();
+  if (now - _lastMetricsTs >= 250) {
+    _lastMetricsTs = now;
+    _updateStationMetrics(trainMap, dSig, kSig);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LIVE STATION METRICS
+// Computes and writes the stat-val elements for both station panels.
+// Called at ~4 Hz from _updateInfoPanels.
+// ─────────────────────────────────────────────────────────────────────────────
+function _updateStationMetrics(trainMap, dSig, kSig) {
+  const trains = Object.values(trainMap);
+
+  // ── DAPODI ──────────────────────────────────────────────────────────────
+  // Trains that have been active at Dapodi at some point
+  const dActive  = trains.filter(t => t.dapodi && t.dapodi.active && !t.dapodi.done);
+  const dPassed  = trains.filter(t => t.dapodi && t.dapodi.done);
+  const dDelays  = trains
+    .filter(t => t.dapodi && (t.dapodi.active || t.dapodi.done))
+    .map(t => t.delayMin || 0);
+  const dAvgDelay = dDelays.length
+    ? Math.round(dDelays.reduce((s, v) => s + v, 0) / dDelays.length)
+    : 0;
+
+  // Alert: any signal at Dapodi is red right now
+  const dRedCount = Object.values(dSig).filter(v => v === 'red').length;
+  const dAlerts   = dRedCount + (dActive.length > 0 && dDelays.some(d => d > 15) ? 1 : 0);
+
+  _setMetric('d-passed',    dPassed.length);
+  _setMetric('d-avg-delay', dDelays.length ? dAvgDelay + ' min' : '—');
+  _setMetric('d-active',    dActive.length);
+  _setMetricAlert('d-alerts', dAlerts,
+    dAlerts === 0 ? 'green' : dAlerts >= 2 ? 'red' : 'orange');
+
+  // ── KHADKI ──────────────────────────────────────────────────────────────
+  const kActive  = trains.filter(t => t.khadki && t.khadki.active && !t.khadki.done);
+  const kPassed  = trains.filter(t => t.khadki && t.khadki.done);
+  const kHalted  = trains.filter(t => t.khadki && t.khadki.stopped);
+  const kDelays  = trains
+    .filter(t => t.khadki && (t.khadki.active || t.khadki.done))
+    .map(t => t.delayMin || 0);
+  const kAvgDelay = kDelays.length
+    ? Math.round(kDelays.reduce((s, v) => s + v, 0) / kDelays.length)
+    : 0;
+
+  // Alerts: halted trains + red signals at approach positions (H1, H2)
+  const kCriticalRed = ['H1', 'H2', 'S1'].filter(id => kSig[id] === 'red').length;
+  const kAlerts      = kHalted.length + (kCriticalRed > 1 ? 1 : 0);
+
+  _setMetric('k-passed',    kPassed.length);
+  _setMetric('k-avg-delay', kDelays.length ? kAvgDelay + ' min' : '—');
+  _setMetricHalted('k-halted', kHalted.length);
+  _setMetricAlert('k-alerts', kAlerts,
+    kAlerts === 0 ? 'green' : kAlerts >= 2 ? 'red' : 'orange');
+}
+
+// Write a plain value to a stat-val element
+function _setMetric(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const str = String(value);
+  if (el.textContent !== str) el.textContent = str;
+}
+
+// Write halted count with colour coding
+function _setMetricHalted(id, count) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const str = String(count);
+  if (el.textContent !== str) el.textContent = str;
+  el.style.color = count > 0 ? 'var(--red)' : 'var(--cyan)';
+}
+
+// Write alert count with colour coding (green / orange / red)
+function _setMetricAlert(id, count, level) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const str = String(count);
+  if (el.textContent !== str) el.textContent = str;
+  el.style.color = level === 'red'    ? 'var(--red)'
+                 : level === 'orange' ? 'var(--orange)'
+                 : 'var(--green)';
 }
 
 function _trainStatusRows(trainMap, station) {
@@ -208,11 +303,8 @@ const OFFLINE = (() => {
 
   const SPD_NORMAL = 90, SPD_SLOW = 50;
 
-  // Timeline: simTime (seconds) when each train enters each canvas
-  // 22106 Indrayani (UP right→left): crosses Khadki first, appears at Dapodi after clearing Khadki
-  // 1160px ÷ 90px/s ≈ 13s travel + 4s gap → dapodi_enter = 2 + 13 + 4 = 19
-  // 14806 enters Khadki at t=30, 22225 enters Khadki at t=42 (12s gap)
-  const TL = {
+  // Timeline – mutable so applyScenario() can override per scenario
+  let TL = {
     '22106': { d: 19, k: 2  },
     '17613': { d: 5,  k: 21 },
     '14806': { d: 14, k: 30 },
@@ -278,7 +370,39 @@ const OFFLINE = (() => {
     if (!stay) { _sched('k', id, 'yellow', 6); _sched('k', id, 'green', 12); }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // ─── Active scenario config ────────────────────────────────────────────
+  // Set by applyScenario() before first tick. Defaults to Scenario A behaviour.
+  let _sc = null; // full scenario config object from SC[]
+
+  // ── applyScenario – called by scenario.js before initSimulation ────────
+  function applyScenario(sc) {
+    _sc = sc;
+    // Reset all state with scenario-specific signal defaults and timeline
+    trains = {};
+    DEFS.forEach(def => {
+      const override = sc.trains[def.number] || {};
+      trains[def.number] = _makeTrain({
+        ...def,
+        delayMin: override.delayMin !== undefined ? override.delayMin : def.delayMin,
+      });
+    });
+    // Apply signal defaults from scenario
+    dSig = { ...(sc.dSigInit || { H1:'green', H2:'green', S1:'green', S2:'green', H3:'green', H4:'green' }) };
+    kSig = { ...(sc.kSigInit || { H1:'red', H2:'red', H3:'green', H4:'green', H5:'green', H6:'green', H7:'green', S1:'red', S2:'green', S3:'green' }) };
+    // Apply timeline from scenario
+    Object.keys(sc.timeline || {}).forEach(n => {
+      TL[n] = { d: sc.timeline[n].d, k: sc.timeline[n].k };
+    });
+    sigQ = []; triggered = new Set(); simTime = 0; departTime17613 = null;
+    // Extra depart timers for Scenario C
+    departTime14806 = null;
+    // Give state immediately so render loop has something to draw
+    window._scenarioId = sc.id;
+    console.log('[OFFLINE] Scenario', sc.id, 'applied');
+  }
+
+  let departTime14806 = null; // used only in Scenario C
+
   function tick(dt) {
     const d = dt * speed;
     simTime += d;
@@ -293,6 +417,7 @@ const OFFLINE = (() => {
   // ── 22106 Indrayani – UP direction, right→left on PF3 ──────────────────
   function _tick22106(d) {
     const u = trains['22106'];
+    const scId = (_sc && _sc.id) || 'A';
 
     // Dapodi (UP train enters from right)
     if (!u.dapodi.active && simTime >= TL['22106'].d) {
@@ -300,33 +425,61 @@ const OFFLINE = (() => {
     }
     if (u.dapodi.active && !u.dapodi.done) {
       u.dapodi.x += u.dapodi.speed * d;
-      const f = u.dapodi.x; // right edge = front
+      const f = u.dapodi.x;
       if (f < 970) _trigD('H4', '22106');
       if (f < 800) _trigD('S2', '22106');
       if (f < 210) _trigD('H2', '22106');
       if (u.dapodi.x + u.length < 0) { u.dapodi.done = true; u.dapodi.phase = 'done'; }
     }
 
-    // Khadki PF3 (enters from right, passes left)
+    // Khadki PF3
     if (!u.khadki.active && simTime >= TL['22106'].k) {
       u.khadki.active = true; u.khadki.x = KW + 20; u.khadki.speed = -SPD_NORMAL; u.khadki.phase = 'entering';
     }
     if (u.khadki.active && !u.khadki.done) {
+      // ── Scenario C: Indrayani waits outside Khadki (at right edge) until 22225 VB has fully cleared ──
+      if (scId === 'C' && !u.khadki.stopped) {
+        const vbDone = trains['22225'].khadki.done;
+        // Stop right at canvas edge (PF3 approach signal) until VB clears
+        if (!vbDone && u.khadki.x <= KW + 20 - 30) {
+          // Hold position – waiting for PF3 to clear
+          u.khadki.phase   = 'halted';
+          u.khadki.stopped = true;
+          u.khadki.speed   = 0;
+          _trigK('H3', '22106_wait', true); // H3 stays RED
+        }
+        if (vbDone && u.khadki.stopped) {
+          // VB cleared – release Indrayani
+          const rk = 'k_22106_rel';
+          if (!triggered.has(rk)) {
+            triggered.add(rk);
+            u.khadki.stopped = false;
+            u.khadki.speed   = -SPD_NORMAL;
+            u.khadki.phase   = 'entering';
+            // Add delay for the wait
+            trains['22106'].delayMin += 12;
+            // Release PF3 signal
+            kSig['H3'] = 'yellow';
+            _sched('k', 'H3', 'green', 4);
+          }
+        }
+        if (u.khadki.stopped) return; // don't move while waiting
+      }
+
       u.khadki.x += u.khadki.speed * d;
-      const f = u.khadki.x; // right edge = front for UP train
-      // H3 = Pune-side PF3 departure signal (train coming from Pune triggers it)
+      const f = u.khadki.x;
       if (f < 1000) _trigK('H3', '22106');
-      // S3 = PF2 Pune-end starter (shared area) – triggers as UP train passes
       if (f < 870)  _trigK('S3', '22106');
-      // H6 = Mumbai-side PF3 approach signal
       if (f < 200)  _trigK('H6', '22106');
       if (u.khadki.x + u.length < 0) { u.khadki.done = true; u.khadki.phase = 'done'; }
     }
   }
 
-  // ── 17613 Panvel-Nanded – DN, left→right, HALTS at PF1 ────────────────
+  // ── 17613 Panvel-Nanded – DN, left→right, HALTS at PF1 (Scenario A/C only) ──
   function _tick17613(d) {
-    const a = trains['17613'];
+    const a    = trains['17613'];
+    const scId = (_sc && _sc.id) || 'A';
+    const doHalt = (scId !== 'B'); // Scenario B = non-stop, no halt
 
     // Dapodi PF1
     if (!a.dapodi.active && simTime >= TL['17613'].d) {
@@ -341,13 +494,15 @@ const OFFLINE = (() => {
       if (a.dapodi.x > DW + 20) { a.dapodi.done = true; a.dapodi.phase = 'done'; }
     }
 
-    // Khadki PF1 – approaches, decelerates, halts
+    // Khadki PF1 – approaches, decelerates, halts (Scenario A & C only)
     if (!a.khadki.active && simTime >= TL['17613'].k) {
       a.khadki.active = true; a.khadki.x = -(a.length + 20);
-      a.khadki.speed = SPD_NORMAL; a.khadki.phase = 'approaching'; a.khadki.stopped = false;
+      a.khadki.speed = SPD_NORMAL;
+      a.khadki.phase = doHalt ? 'approaching' : 'entering';
+      a.khadki.stopped = false;
     }
     if (a.khadki.active && !a.khadki.done) {
-      if (!a.khadki.stopped) {
+      if (doHalt && !a.khadki.stopped) {
         const f = a.khadki.x + a.length;
 
         // H1 is already RED before train arrives – trigger once for signalling records
@@ -366,6 +521,13 @@ const OFFLINE = (() => {
         } else if (a.khadki.phase !== 'halted') {
           a.khadki.x += a.khadki.speed * d;
         }
+      } else if (!doHalt) {
+        // Scenario B – non-stop pass-through on PF1
+        // Move straight through; trigger H1 and H2 as train passes (turn red, recover)
+        a.khadki.x += a.khadki.speed * d;
+        const f = a.khadki.x + a.length;
+        if (f > 155) _trigK('H1', '17613_b_enter'); // approach – normal recovery
+        if (f > 960) _trigK('H2', '17613_b_dep');   // departure – normal recovery
       } else {
         // Waiting – release only when BOTH overtakers have fully exited canvas
         const b14done = trains['14806'].khadki.done;
@@ -403,11 +565,15 @@ const OFFLINE = (() => {
     }
   }
 
-  // ── 14806 Barmer-Yesvantpur – DN, left→right, PF2 OVERTAKE ───────────
+  // ── 14806 Barmer-Yesvantpur – DN, left→right
+  //    Scenario A: PF2 overtake (17613 halted on PF1)
+  //    Scenario B: PF1 main line non-stop pass-through
+  //    Scenario C: PF2 halt until VB passes, then depart
   function _tick14806(d) {
-    const b = trains['14806'];
+    const b    = trains['14806'];
+    const scId = (_sc && _sc.id) || 'A';
 
-    // Dapodi PF1 (passes through)
+    // ── Dapodi – always passes through PF1 ───────────────
     if (!b.dapodi.active && simTime >= TL['14806'].d) {
       b.dapodi.active = true; b.dapodi.x = -(b.length + 20); b.dapodi.speed = SPD_NORMAL; b.dapodi.phase = 'entering';
     }
@@ -420,36 +586,85 @@ const OFFLINE = (() => {
       if (b.dapodi.x > DW + 20) { b.dapodi.done = true; b.dapodi.phase = 'done'; }
     }
 
-    // Khadki PF2 – diverts into PF2 via H7, overtakes 17613, exits via H5
+    // ── Khadki ────────────────────────────────────────────
     if (!b.khadki.active && simTime >= TL['14806'].k) {
-      b.khadki.active = true; b.khadki.x = -(b.length + 20); b.khadki.speed = SPD_NORMAL; b.khadki.phase = 'entering';
+      b.khadki.active = true; b.khadki.x = -(b.length + 20); b.khadki.speed = SPD_NORMAL;
+      b.khadki.phase = (scId === 'C') ? 'approaching' : 'entering';
+      b.khadki.stopped = false;
     }
+
     if (b.khadki.active && !b.khadki.done) {
-      b.khadki.x += b.khadki.speed * d;
-      const f = b.khadki.x + b.length;
-      // H7 = Mumbai-side PF2 approach signal → turns RED as 14806 enters
-      if (f > 210) _trigK('H7', '14806_enter');
-      // S2 = PF2 Mumbai-end starter
-      if (f > 305) _trigK('S2', '14806');
-      // S3 = PF2 Pune-end starter
-      if (f > 855) _trigK('S3', '14806_exit');
-      // H5 = PF2 Pune-side departure signal
-      if (f > 940) _trigK('H5', '14806');
-      if (b.khadki.x > KW + 20) {
-        b.khadki.done = true; b.khadki.phase = 'done';
-        if (!triggered.has('ot1')) {
-          triggered.add('ot1');
-          trains['17613'].delayMin += 5;
-        }
+
+      // ── Scenario B: non-stop on PF1 main line ─────────
+      if (scId === 'B') {
+        b.khadki.x += b.khadki.speed * d;
+        const f = b.khadki.x + b.length;
+        // PF1 signals only (H1 approach, H2 departure)
+        if (f > 155)  _trigK('H1', '14806_pf1');
+        if (f > 960)  _trigK('H2', '14806_pf1_dep');
+        if (b.khadki.x > KW + 20) { b.khadki.done = true; b.khadki.phase = 'done'; }
+        return;
       }
+
+      // ── Scenario A: non-stop on PF2 (overtake 17613) ──
+      if (scId === 'A' && !b.khadki.stopped) {
+        b.khadki.x += b.khadki.speed * d;
+        const f = b.khadki.x + b.length;
+        if (f > 210) _trigK('H7', '14806_enter');
+        if (f > 305) _trigK('S2', '14806');
+        if (f > 855) _trigK('S3', '14806_exit');
+        if (f > 940) _trigK('H5', '14806');
+        if (b.khadki.x > KW + 20) {
+          b.khadki.done = true; b.khadki.phase = 'done';
+          if (!triggered.has('ot1')) { triggered.add('ot1'); trains['17613'].delayMin += 5; }
+        }
+        return;
+      }
+
+      // ── Scenario C: halt at PF2 until VB passes, then depart ──
+      if (!b.khadki.stopped) {
+        b.khadki.x += b.khadki.speed * d;
+        const f = b.khadki.x + b.length;
+        if (f > 210) _trigK('H7', '14806_enter');
+        if (f > 305) _trigK('S2', '14806');
+        // Halt when reaching mid-platform on PF2
+        if (f >= 880 && b.khadki.phase === 'approaching') {
+          b.khadki.stopped = true; b.khadki.speed = 0; b.khadki.phase = 'halted';
+          _trigK('H5', '14806_halt', true);
+          _trigK('S3', '14806_s3halt', true);
+        }
+      } else {
+        // Release after VB (22225) has fully cleared
+        if (trains['22225'].khadki.done) {
+          const rk = 'k_14806_rel';
+          if (!triggered.has(rk)) {
+            triggered.add(rk);
+            kSig['S3'] = 'green';
+            _sched('k', 'H5', 'yellow', 3);
+            _sched('k', 'H5', 'green',  6);
+            departTime14806 = simTime + 6.2;
+          }
+          if (departTime14806 !== null && simTime >= departTime14806) {
+            departTime14806 = null;
+            b.khadki.stopped = false; b.khadki.speed = SPD_NORMAL; b.khadki.phase = 'departing';
+            trains['17613'].delayMin += 5;
+          }
+        }
+        if (!b.khadki.stopped) b.khadki.x += b.khadki.speed * d;
+      }
+      if (b.khadki.x > KW + 20) { b.khadki.done = true; b.khadki.phase = 'done'; }
     }
   }
 
-  // ── 22225 Vande Bharat – DN, left→right, PF2 OVERTAKE (after 14806) ──
+  // ── 22225 Vande Bharat – DN, left→right
+  //    Scenario A: PF2 overtake (12s after 14806)
+  //    Scenario B: PF1 main line non-stop pass-through
+  //    Scenario C: PF3 overtake (passes 17613 on PF1 AND 14806 on PF2)
   function _tick22225(d) {
-    const c = trains['22225'];
+    const c    = trains['22225'];
+    const scId = (_sc && _sc.id) || 'A';
 
-    // Dapodi PF1 (passes through)
+    // ── Dapodi – always passes through ────────────────────
     if (!c.dapodi.active && simTime >= TL['22225'].d) {
       c.dapodi.active = true; c.dapodi.x = -(c.length + 20); c.dapodi.speed = SPD_NORMAL; c.dapodi.phase = 'entering';
     }
@@ -462,23 +677,49 @@ const OFFLINE = (() => {
       if (c.dapodi.x > DW + 20) { c.dapodi.done = true; c.dapodi.phase = 'done'; }
     }
 
-    // Khadki PF2 – enters 12s after 14806, same PF2 route
+    // ── Khadki ────────────────────────────────────────────
     if (!c.khadki.active && simTime >= TL['22225'].k) {
       c.khadki.active = true; c.khadki.x = -(c.length + 20); c.khadki.speed = SPD_NORMAL; c.khadki.phase = 'entering';
     }
     if (c.khadki.active && !c.khadki.done) {
+
+      // ── Scenario B: non-stop on PF1 main line ─────────
+      if (scId === 'B') {
+        c.khadki.x += c.khadki.speed * d;
+        const f = c.khadki.x + c.length;
+        if (f > 155)  _trigK('H1', '22225_pf1');
+        if (f > 960)  _trigK('H2', '22225_pf1_dep');
+        if (c.khadki.x > KW + 20) { c.khadki.done = true; c.khadki.phase = 'done'; }
+        return;
+      }
+
+      // ── Scenario A: PF2 overtake (after 14806) ─────────
+      if (scId === 'A') {
+        c.khadki.x += c.khadki.speed * d;
+        const f = c.khadki.x + c.length;
+        if (f > 210) _trigK('H7', '22225_enter');
+        if (f > 305) _trigK('S2', '22225');
+        if (f > 855) _trigK('S3', '22225_exit');
+        if (f > 940) _trigK('H5', '22225');
+        if (c.khadki.x > KW + 20) {
+          c.khadki.done = true; c.khadki.phase = 'done';
+          if (!triggered.has('ot2')) { triggered.add('ot2'); trains['17613'].delayMin += 5; }
+        }
+        return;
+      }
+
+      // ── Scenario C: PF3 overtake (both 17613 on PF1 and 14806 on PF2 halted) ──
       c.khadki.x += c.khadki.speed * d;
       const f = c.khadki.x + c.length;
-      if (f > 210) _trigK('H7', '22225_enter');
-      if (f > 305) _trigK('S2', '22225');
-      if (f > 855) _trigK('S3', '22225_exit');
-      if (f > 940) _trigK('H5', '22225');
+      // PF3 signals for VB passing through
+      if (f > 155)  _trigK('H6', '22225_pf3_enter'); // H6 = bottom approach
+      if (f > 855)  _trigK('S3', '22225_pf3');
+      if (f > 960)  _trigK('H3', '22225_pf3_dep');   // H3 = PF3 Pune departure
       if (c.khadki.x > KW + 20) {
         c.khadki.done = true; c.khadki.phase = 'done';
-        if (!triggered.has('ot2')) {
-          triggered.add('ot2');
-          trains['17613'].delayMin += 5;
-        }
+        // Both 17613 and 14806 get overtake penalty
+        if (!triggered.has('ot_vb_17613')) { triggered.add('ot_vb_17613'); trains['17613'].delayMin += 5; }
+        if (!triggered.has('ot_vb_14806')) { triggered.add('ot_vb_14806'); trains['14806'].delayMin += 5; }
       }
     }
   }
@@ -487,5 +728,5 @@ const OFFLINE = (() => {
     return { simTime, speed, trains, dapodiSignals: dSig, khadkiSignals: kSig, timestamp: Date.now() };
   }
 
-  return { init, tick, getState, syncTime, setSpeed: s => { speed = s; }, reset: init };
+  return { init, applyScenario, tick, getState, syncTime, setSpeed: s => { speed = s; }, reset: init };
 })();

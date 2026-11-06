@@ -55,6 +55,17 @@ const API = {
     return res.json();
   },
 
+  /** Send chosen scenario id to backend */
+  async setScenario(id) {
+    const res = await fetch(`${API_BASE}/api/scenarios/select`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenarioId: id }),
+    });
+    if (!res.ok) throw new Error('Scenario select failed');
+    return res.json();
+  },
+
   /** Health check */
   async ping() {
     try {

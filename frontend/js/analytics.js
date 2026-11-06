@@ -16,6 +16,7 @@ async function renderAnalytics() {
     _buildStationAnalysis(data.dapodiMetrics, data.khadkiMetrics);
     _buildAIInsights(data.aiInsights);
     if (!window._chartsInited) {
+      _destroyCharts();
       _initCharts(data);
       window._chartsInited = true;
     } else {
@@ -140,18 +141,65 @@ function _buildAIInsights(insights) {
   }).join('');
 }
 
+// ── Destroy existing chart instances (called before re-init on reset) ────────
+function _destroyCharts() {
+  Object.values(_charts).forEach(c => { try { c.destroy(); } catch (_) {} });
+  _charts = {};
+}
+
 // ── Chart Initialisation ──────────────────────────────────────────────────────
+
+// Fixed pixel dimensions for all charts — no responsive auto-sizing.
+// This guarantees charts never overflow their container.
+const CHART_W = 680;
+const CHART_H = 220;
+
+// Set explicit canvas dimensions before Chart.js touches it
+function _prepCanvas(id) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return null;
+  canvas.width  = CHART_W;
+  canvas.height = CHART_H;
+  canvas.style.width  = CHART_W + 'px';
+  canvas.style.height = CHART_H + 'px';
+  return canvas;
+}
+
 function _initCharts(data) {
+  // All charts use responsive:false — we control the size manually
   const chartDefaults = (yLabel = 'Minutes') => ({
-    responsive: true,
+    responsive: false,
     maintainAspectRatio: false,
+    animation: { duration: 600 },
+    layout: { padding: { top: 4, right: 8, bottom: 4, left: 8 } },
     plugins: {
-      legend: { labels: { color: '#8899aa', font: { family: 'Courier New', size: 11 } } },
+      legend: {
+        position: 'bottom',
+        align: 'center',
+        labels: {
+          color: '#8899aa',
+          font: { family: 'Courier New', size: 10 },
+          boxWidth: 12,
+          padding: 10,
+          generateLabels(chart) {
+            return Chart.defaults.plugins.legend.labels.generateLabels(chart).map(item => {
+              item.text = item.text.length > 18 ? item.text.slice(0, 17) + '…' : item.text;
+              return item;
+            });
+          },
+        },
+      },
     },
     scales: {
-      x: { ticks: { color: '#557799', font: { family: 'Courier New' } }, grid: { color: '#0d1a28' } },
-      y: { ticks: { color: '#557799', font: { family: 'Courier New' } }, grid: { color: '#0d1a28' },
-           title: { display: true, text: yLabel, color: '#446677', font: { family: 'Courier New', size: 10 } } },
+      x: {
+        ticks: { color: '#557799', font: { family: 'Courier New', size: 10 }, maxRotation: 0 },
+        grid:  { color: '#0d1a28' },
+      },
+      y: {
+        ticks: { color: '#557799', font: { family: 'Courier New', size: 10 } },
+        grid:  { color: '#0d1a28' },
+        title: { display: true, text: yLabel, color: '#446677', font: { family: 'Courier New', size: 10 } },
+      },
     },
   });
 
@@ -161,7 +209,7 @@ function _initCharts(data) {
   const colorsA = colors.map(c => c + '88');
 
   // ── Bar: delay per train per station ───────────────────
-  _charts.delay = new Chart(document.getElementById('chartDelay'), {
+  _charts.delay = new Chart(_prepCanvas('chartDelay'), {
     type: 'bar',
     data: {
       labels,
@@ -187,7 +235,7 @@ function _initCharts(data) {
 
   // ── Line: delay progression over checkpoints ────────────
   const prog = data.delayProgression;
-  _charts.line = new Chart(document.getElementById('chartLine'), {
+  _charts.line = new Chart(_prepCanvas('chartLine'), {
     type: 'line',
     data: {
       labels: prog.labels,
@@ -204,32 +252,53 @@ function _initCharts(data) {
     options: chartDefaults('Delay (min)'),
   });
 
-  // ── Doughnut: delay causes ───────────────────────────────
-  _charts.pie = new Chart(document.getElementById('chartPie'), {
+  // ── Doughnut: delay causes – driven by live delayCauses payload ────────────
+  const causes = data.delayCauses || {
+    labels: ['Signal Hold', 'Overtake Penalty', 'Originating Delay', 'Technical Delay'],
+    data:   [20, 10, 15, 5],
+    colors: {
+      background: ['#ff444488', '#ff880088', '#ffdd0088', '#44cc6688'],
+      border:     ['#ff4444',   '#ff8800',   '#ffdd00',   '#44cc66'],
+    },
+  };
+  _charts.pie = new Chart(_prepCanvas('chartPie'), {
     type: 'doughnut',
     data: {
-      labels: ['Signal Hold', 'Overtake Penalty (×2)', 'Originating Delay', 'Technical Delay'],
+      labels: causes.labels,
       datasets: [{
-        data: [20, 10, 15, 5],
-        backgroundColor: ['#ff444488', '#ff880088', '#ffdd0088', '#44cc6688'],
-        borderColor:     ['#ff4444',   '#ff8800',   '#ffdd00',   '#44cc66'],
+        data:            causes.data,
+        backgroundColor: causes.colors.background,
+        borderColor:     causes.colors.border,
         borderWidth: 1.5,
       }],
     },
     options: {
-      responsive: true,
+      responsive: false,
       maintainAspectRatio: false,
+      animation: { duration: 600 },
+      layout: { padding: 4 },
       plugins: {
         legend: {
           position: 'bottom',
-          labels: { color: '#8899aa', font: { family: 'Courier New', size: 10 }, padding: 12 },
+          align: 'center',
+          labels: {
+            color: '#8899aa',
+            font: { family: 'Courier New', size: 10 },
+            boxWidth: 12,
+            padding: 8,
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${ctx.parsed} min`,
+          },
         },
       },
     },
   });
 
   // ── Grouped bar: train delays by station ─────────────────
-  _charts.timeline = new Chart(document.getElementById('chartTimeline'), {
+  _charts.timeline = new Chart(_prepCanvas('chartTimeline'), {
     type: 'bar',
     data: {
       labels: ['Dapodi', 'Khadki'],
@@ -249,23 +318,52 @@ function _initCharts(data) {
 function _updateCharts(data) {
   if (!_charts.delay) return;
   const trains = data.trainAnalytics;
+
+  // Bar: per-train delay
   _charts.delay.data.datasets[0].data = trains.map(t => t.dapodi.delay);
   _charts.delay.data.datasets[1].data = trains.map(t => t.khadki.delay);
   _charts.delay.update('none');
 
+  // Line: delay progression checkpoints
   trains.forEach((t, i) => {
     if (_charts.line.data.datasets[i]) {
       _charts.line.data.datasets[i].data = data.delayProgression.series[t.number] || [];
     }
   });
   _charts.line.update('none');
+
+  // Doughnut: delay causes – update from live delayCauses payload
+  if (_charts.pie && data.delayCauses) {
+    _charts.pie.data.labels                    = data.delayCauses.labels;
+    _charts.pie.data.datasets[0].data          = data.delayCauses.data;
+    _charts.pie.data.datasets[0].backgroundColor = data.delayCauses.colors.background;
+    _charts.pie.data.datasets[0].borderColor     = data.delayCauses.colors.border;
+    _charts.pie.update('none');
+  }
+
+  // Grouped bar: station traffic flow
+  if (_charts.timeline) {
+    trains.forEach((t, i) => {
+      if (_charts.timeline.data.datasets[i]) {
+        _charts.timeline.data.datasets[i].data = [t.dapodi.delay, t.khadki.delay];
+      }
+    });
+    _charts.timeline.update('none');
+  }
 }
 
 // ── PDF export ────────────────────────────────────────────────────────────────
 function exportPDF() {
-  // Ensure analytics tab is visible before print
+  // 1. Make sure analytics tab is active and data is loaded
   switchTab('analytics', document.querySelector('[data-tab="analytics"]'));
-  setTimeout(() => window.print(), 300);
+
+  // 2. Render analytics data fresh (so charts are up-to-date)
+  renderAnalytics().then(() => {
+    // 3. Small delay to let Chart.js finish drawing
+    setTimeout(() => window.print(), 400);
+  }).catch(() => {
+    setTimeout(() => window.print(), 400);
+  });
 }
 
 // ── Static fallback if backend is offline ─────────────────────────────────────
@@ -295,6 +393,14 @@ function _renderStaticFallback() {
     delayProgression: {
       labels: ['Origin','Dapodi','Post OT-1','Post OT-2','Khadki Exit'],
       series: { '17613':[20,20,25,30,30], '14806':[0,0,0,0,0], '22225':[15,15,15,15,15], '22106':[5,5,5,5,5] },
+    },
+    delayCauses: {
+      labels: ['Signal Hold', 'Overtake Penalty', 'Originating Delay', 'Technical Delay'],
+      data:   [20, 10, 15, 5],
+      colors: {
+        background: ['#ff444488', '#ff880088', '#ffdd0088', '#44cc6688'],
+        border:     ['#ff4444',   '#ff8800',   '#ffdd00',   '#44cc66'],
+      },
     },
     aiInsights: [
       { level:'critical', icon:'🚨', title:'Cascading Delay at Khadki PF-1',

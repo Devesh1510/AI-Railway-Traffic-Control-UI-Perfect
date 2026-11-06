@@ -11,6 +11,7 @@ const path     = require('path');
 const trainRoutes     = require('./routes/trains');
 const signalRoutes    = require('./routes/signals');
 const analyticsRoutes = require('./routes/analytics');
+const scenarioRoutes  = require('./routes/scenarios');
 const engine          = require('./data/simulation');
 
 const app  = express();
@@ -27,6 +28,7 @@ app.use(express.static(path.join(__dirname, '..', 'frontend')));
 app.use('/api/trains',    trainRoutes);
 app.use('/api/signals',   signalRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/scenarios', scenarioRoutes);
 
 // Simulation control endpoints
 app.post('/api/control/speed', (req, res) => {

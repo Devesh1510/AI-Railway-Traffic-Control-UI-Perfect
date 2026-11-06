@@ -266,3 +266,350 @@ html, body {
   #header h1 { color: #003366; text-shadow: none; }
   .sim-clock { color: #003366; text-shadow: none; }
 }
+
+/* ============================================================
+   SCENARIO CHOOSER MODAL
+   ============================================================ */
+
+/* Full-screen overlay */
+.sc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(2, 5, 12, 0.97);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 24px 16px 48px;
+}
+.sc-overlay.hidden { display: none; }
+
+/* Modal box */
+.sc-modal {
+  width: 100%;
+  max-width: 1280px;
+  background: #080e1a;
+  border: 1px solid #1e3a58;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 0 80px #00ccff22, 0 20px 60px rgba(0,0,0,0.6);
+}
+
+/* ── Header ── */
+.sc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 28px 36px 24px;
+  background: linear-gradient(135deg, #0d1825 0%, #0a2030 100%);
+  border-bottom: 1px solid #1e3a58;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.sc-ai-badge {
+  display: inline-block;
+  padding: 5px 16px;
+  background: #00ccff18;
+  border: 1px solid #00ccff55;
+  border-radius: 20px;
+  color: #00ccff;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: 2px;
+  margin-bottom: 12px;
+}
+.sc-title {
+  font-size: 24px;
+  color: #eef6ff;
+  letter-spacing: 2.5px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  text-shadow: 0 0 24px #00ccff33;
+  font-family: 'Courier New', monospace;
+}
+.sc-subtitle {
+  font-size: 13px;
+  color: #9ab8cc;
+  line-height: 1.8;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: normal;
+}
+.sc-subtitle strong { color: #cce4f0; font-weight: 600; }
+
+.sc-header-right {
+  text-align: right;
+  flex-shrink: 0;
+}
+.sc-clock {
+  font-size: 32px;
+  color: #ffcc00;
+  letter-spacing: 4px;
+  text-shadow: 0 0 14px #ffcc0055;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+}
+.sc-live {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  font-size: 12px;
+  color: #ffbb33;
+  margin-top: 8px;
+  letter-spacing: 1px;
+  font-family: Arial, Helvetica, sans-serif;
+}
+.sc-live-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: #ffaa00;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+/* ── Train strip ── */
+.sc-train-strip {
+  display: flex;
+  gap: 12px;
+  padding: 16px 36px;
+  background: #060f1a;
+  border-bottom: 1px solid #1e3a58;
+  flex-wrap: wrap;
+}
+.sc-train-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  background: #0d1825;
+  border: 1px solid #1e3a58;
+  border-radius: 8px;
+  flex: 1;
+  min-width: 220px;
+  border-left: 4px solid var(--tc);
+}
+.sc-chip-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--tc);
+  box-shadow: 0 0 8px var(--tc);
+  flex-shrink: 0;
+}
+.sc-chip-num  {
+  font-size: 15px;
+  color: #ddeeff;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+}
+.sc-chip-name {
+  font-size: 12px;
+  color: #88aacc;
+  margin-top: 2px;
+  font-family: Arial, Helvetica, sans-serif;
+}
+.sc-chip-tag  {
+  margin-left: auto;
+  font-size: 11px;
+  color: #ffcc66;
+  background: #2a1800;
+  border: 1px solid #ff880055;
+  padding: 3px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 600;
+}
+
+/* ── Scenario cards ── */
+.sc-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-top: 1px solid #1e3a58;
+}
+@media (max-width: 960px) {
+  .sc-cards { grid-template-columns: 1fr; }
+}
+
+.sc-card {
+  padding: 28px 28px 24px;
+  border-right: 1px solid #1e3a58;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.sc-card:last-child { border-right: none; }
+.sc-card:hover { background: #0d2035; }
+.sc-card.selected {
+  background: #081e34;
+  box-shadow: inset 0 0 0 2px #00ccff;
+}
+
+.sc-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sc-option-label {
+  font-size: 11px;
+  color: #6688aa;
+  letter-spacing: 2.5px;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+}
+.sc-badge {
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  border: 1px solid;
+  letter-spacing: 1px;
+  font-weight: bold;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.sc-card-title {
+  font-size: 18px;
+  color: #eef6ff;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.3;
+}
+.sc-card-sub {
+  font-size: 13px;
+  color: #7aadcc;
+  line-height: 1.7;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Metrics row */
+.sc-metrics {
+  display: flex;
+  gap: 10px;
+}
+.sc-metric {
+  flex: 1;
+  background: #060e18;
+  border: 1px solid #1a2e42;
+  border-radius: 6px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.sc-metric-val {
+  font-size: 20px;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+}
+.sc-metric-lbl {
+  font-size: 10px;
+  color: #6688aa;
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.4;
+}
+
+/* Confidence bar */
+.sc-conf-bar-wrap {
+  height: 6px;
+  background: #0a1824;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.sc-conf-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.8s ease;
+}
+
+/* Reasoning bullets */
+.sc-reasons {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+}
+.sc-reasons li {
+  font-size: 12px;
+  color: #99bbcc;
+  padding: 6px 0 6px 18px;
+  border-bottom: 1px solid #0e1e2e;
+  position: relative;
+  line-height: 1.6;
+  font-family: Arial, Helvetica, sans-serif;
+}
+.sc-reasons li:last-child { border-bottom: none; }
+.sc-reasons li::before {
+  content: '›';
+  position: absolute;
+  left: 4px;
+  color: #4488aa;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Select button */
+.sc-select-btn {
+  width: 100%;
+  padding: 13px 16px;
+  background: transparent;
+  border: 2px solid var(--bc);
+  color: var(--bc);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  transition: all 0.2s;
+  margin-top: auto;
+  text-transform: uppercase;
+}
+.sc-select-btn:hover {
+  background: color-mix(in srgb, var(--bc) 18%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--bc) 35%, transparent);
+  letter-spacing: 2px;
+}
+
+/* Footer */
+.sc-footer {
+  padding: 12px 36px;
+  background: #060f1a;
+  border-top: 1px solid #1e3a58;
+  font-size: 11px;
+  color: #3a6080;
+  text-align: center;
+  letter-spacing: 0.5px;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Executing overlay on top of modal while loading */
+.sc-executing {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 10, 20, 0.92);
+  z-index: 10;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+}
+.sc-executing.show { display: flex; }
+.sc-exec-text {
+  font-size: 18px;
+  color: #00ccff;
+  letter-spacing: 3px;
+  text-shadow: 0 0 20px #00ccff44;
+  animation: pulse 1s ease-in-out infinite;
+  font-family: Arial, Helvetica, sans-serif;
+}
+.sc-exec-sub {
+  font-size: 13px;
+  color: #5588aa;
+  letter-spacing: 1px;
+  font-family: Arial, Helvetica, sans-serif;
+}

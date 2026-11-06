@@ -78,10 +78,10 @@
       <div class="info-panel">
         <h3>STATION METRICS</h3>
         <div class="stat-grid">
-          <div class="stat-item"><div class="stat-val">4</div><div class="stat-lbl">TRAINS TODAY</div></div>
-          <div class="stat-item"><div class="stat-val" id="d-avg-delay">10</div><div class="stat-lbl">AVG DELAY (MIN)</div></div>
-          <div class="stat-item"><div class="stat-val">75%</div><div class="stat-lbl">PF UTILIZATION</div></div>
-          <div class="stat-item"><div class="stat-val" id="d-alerts">1</div><div class="stat-lbl">ACTIVE ALERTS</div></div>
+          <div class="stat-item"><div class="stat-val" id="d-passed">0</div><div class="stat-lbl">TRAINS PASSED</div></div>
+          <div class="stat-item"><div class="stat-val" id="d-avg-delay">—</div><div class="stat-lbl">AVG DELAY (MIN)</div></div>
+          <div class="stat-item"><div class="stat-val" id="d-active">0</div><div class="stat-lbl">ACTIVE NOW</div></div>
+          <div class="stat-item"><div class="stat-val" id="d-alerts">—</div><div class="stat-lbl">ACTIVE ALERTS</div></div>
         </div>
       </div>
 
@@ -119,7 +119,7 @@
     </div>
 
     <div class="canvas-wrap">
-      <canvas id="khadkiCanvas" width="1160" height="380"></canvas>
+      <canvas id="khadkiCanvas" width="1160" height="420"></canvas>
     </div>
 
     <div class="info-panels">
@@ -142,10 +142,10 @@
       <div class="info-panel">
         <h3>STATION METRICS</h3>
         <div class="stat-grid">
-          <div class="stat-item"><div class="stat-val">4</div><div class="stat-lbl">TRAINS TODAY</div></div>
-          <div class="stat-item"><div class="stat-val" id="k-avg-delay">13</div><div class="stat-lbl">AVG DELAY (MIN)</div></div>
+          <div class="stat-item"><div class="stat-val" id="k-passed">0</div><div class="stat-lbl">TRAINS PASSED</div></div>
+          <div class="stat-item"><div class="stat-val" id="k-avg-delay">—</div><div class="stat-lbl">AVG DELAY (MIN)</div></div>
           <div class="stat-item"><div class="stat-val" id="k-halted">0</div><div class="stat-lbl">HALTED TRAINS</div></div>
-          <div class="stat-item"><div class="stat-val" id="k-alerts">2</div><div class="stat-lbl">ACTIVE ALERTS</div></div>
+          <div class="stat-item"><div class="stat-val" id="k-alerts">—</div><div class="stat-lbl">ACTIVE ALERTS</div></div>
         </div>
       </div>
 
@@ -200,28 +200,25 @@
       </div>
     </div>
 
-    <!-- Charts row 1 -->
-    <div class="analytics-grid">
-      <div class="a-card">
-        <h3>&#9646; DELAY PER TRAIN – BAR</h3>
-        <div class="chart-wrap"><canvas id="chartDelay"></canvas></div>
-      </div>
-      <div class="a-card">
-        <h3>&#9646; DELAY PROGRESSION – LINE</h3>
-        <div class="chart-wrap"><canvas id="chartLine"></canvas></div>
-      </div>
+    <!-- Charts — stacked vertically, each full width -->
+    <div class="a-card full-width">
+      <h3>&#9646; DELAY PER TRAIN – BAR</h3>
+      <div class="chart-wrap"><canvas id="chartDelay"></canvas></div>
     </div>
 
-    <!-- Charts row 2 -->
-    <div class="analytics-grid">
-      <div class="a-card">
-        <h3>&#9646; DELAY CAUSES – DOUGHNUT</h3>
-        <div class="chart-wrap"><canvas id="chartPie"></canvas></div>
-      </div>
-      <div class="a-card">
-        <h3>&#9646; STATION TRAFFIC FLOW – GROUPED BAR</h3>
-        <div class="chart-wrap"><canvas id="chartTimeline"></canvas></div>
-      </div>
+    <div class="a-card full-width">
+      <h3>&#9646; DELAY PROGRESSION – LINE</h3>
+      <div class="chart-wrap"><canvas id="chartLine"></canvas></div>
+    </div>
+
+    <div class="a-card full-width">
+      <h3>&#9646; DELAY CAUSES – DOUGHNUT</h3>
+      <div class="chart-wrap"><canvas id="chartPie"></canvas></div>
+    </div>
+
+    <div class="a-card full-width">
+      <h3>&#9646; STATION TRAFFIC FLOW – GROUPED BAR</h3>
+      <div class="chart-wrap"><canvas id="chartTimeline"></canvas></div>
     </div>
 
     <!-- Station analysis -->
@@ -273,7 +270,180 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 <script src="js/khadki.js"></script>
 <script src="js/analytics.js"></script>
 <script src="js/simulation.js"></script>
+<script src="js/scenario.js"></script>
 <script src="js/app.js"></script>
+
+<!-- ══ AI SCENARIO CHOOSER MODAL ══════════════════════════════════════════ -->
+<div id="scenarioOverlay" class="sc-overlay">
+  <div class="sc-modal">
+
+    <!-- Header -->
+    <div class="sc-header">
+      <div class="sc-header-left">
+        <div class="sc-ai-badge">&#129302; AI TRAFFIC PLANNER</div>
+        <h2 class="sc-title">SELECT TRAFFIC MANAGEMENT SCENARIO</h2>
+        <p class="sc-subtitle">
+          Pune Division &bull; Central Railway &bull; Section: Dapodi ↔ Khadki<br>
+          AI has analysed current train positions, priorities and signal states.<br>
+          <strong>Choose a scenario to begin the simulation.</strong>
+        </p>
+      </div>
+      <div class="sc-header-right">
+        <div class="sc-clock" id="scClock">14:00:00</div>
+        <div class="sc-live"><span class="sc-live-dot"></span>AWAITING CONTROLLER INPUT</div>
+      </div>
+    </div>
+
+    <!-- Train summary strip -->
+    <div class="sc-train-strip">
+      <div class="sc-train-chip" style="--tc:#4488ff">
+        <span class="sc-chip-dot"></span>
+        <div><div class="sc-chip-num">17613</div><div class="sc-chip-name">Panvel–Nanded Exp</div></div>
+        <div class="sc-chip-tag">+20 min late</div>
+      </div>
+      <div class="sc-train-chip" style="--tc:#ff7744">
+        <span class="sc-chip-dot"></span>
+        <div><div class="sc-chip-num">14806</div><div class="sc-chip-name">Barmer–YPR AC Exp</div></div>
+        <div class="sc-chip-tag">On Time</div>
+      </div>
+      <div class="sc-train-chip" style="--tc:#ffdd00">
+        <span class="sc-chip-dot"></span>
+        <div><div class="sc-chip-num">22225</div><div class="sc-chip-name">CSMT–SL Vande Bharat</div></div>
+        <div class="sc-chip-tag">+15 min late</div>
+      </div>
+      <div class="sc-train-chip" style="--tc:#44cc66">
+        <span class="sc-chip-dot"></span>
+        <div><div class="sc-chip-num">22106</div><div class="sc-chip-name">Indrayani Exp (UP)</div></div>
+        <div class="sc-chip-tag">+5 min late</div>
+      </div>
+    </div>
+
+    <!-- Scenario cards -->
+    <div class="sc-cards">
+
+      <!-- Option A -->
+      <div class="sc-card" id="sc-card-A" onclick="selectScenario('A')">
+        <div class="sc-card-top">
+          <div class="sc-option-label">OPTION 1</div>
+          <div class="sc-badge" style="background:#00cc6622;color:#00cc66;border-color:#00cc6644">RECOMMENDED</div>
+        </div>
+        <div class="sc-card-title">Optimal Overtake Plan</div>
+        <div class="sc-card-sub">17613 halts Khadki PF1 &bull; 14806 &amp; 22225 overtake via PF2</div>
+
+        <div class="sc-metrics">
+          <div class="sc-metric">
+            <div class="sc-metric-val" style="color:#00cc66">95%</div>
+            <div class="sc-metric-lbl">AI Confidence</div>
+          </div>
+          <div class="sc-metric">
+            <div class="sc-metric-val" style="color:#ffaa00">30 min</div>
+            <div class="sc-metric-lbl">Total Section Delay</div>
+          </div>
+          <div class="sc-metric">
+            <div class="sc-metric-val" style="color:#44aaff">2</div>
+            <div class="sc-metric-lbl">Overtakes</div>
+          </div>
+        </div>
+
+        <div class="sc-conf-bar-wrap">
+          <div class="sc-conf-bar" style="width:95%;background:#00cc66;"></div>
+        </div>
+
+        <ul class="sc-reasons">
+          <li>VB (P1) and AC Exp (P3) clear the section without stopping</li>
+          <li>17613 absorbs wait at Khadki PF1 — released after both overtakes</li>
+          <li>Minimal cascading delay — only 17613 affected</li>
+          <li>Signal block recovery within normal window at all sections</li>
+        </ul>
+
+        <button class="sc-select-btn" style="--bc:#00cc66">▶ EXECUTE THIS PLAN</button>
+      </div>
+
+      <!-- Option B -->
+      <div class="sc-card" id="sc-card-B" onclick="selectScenario('B')">
+        <div class="sc-card-top">
+          <div class="sc-option-label">OPTION 2</div>
+          <div class="sc-badge" style="background:#44aaff22;color:#44aaff;border-color:#44aaff44">LOW DELAY</div>
+        </div>
+        <div class="sc-card-title">All Trains Non-Stop</div>
+        <div class="sc-card-sub">Every train crosses Dapodi &amp; Khadki without halting</div>
+
+        <div class="sc-metrics">
+          <div class="sc-metric">
+            <div class="sc-metric-val" style="color:#44aaff">92%</div>
+            <div class="sc-metric-lbl">AI Confidence</div>
+          </div>
+          <div class="sc-metric">
+            <div class="sc-metric-val" style="color:#44cc66">20 min</div>
+            <div class="sc-metric-lbl">Total Section Delay</div>
+          </div>
+          <div class="sc-metric">
+            <div class="sc-metric-val" style="color:#44aaff">0</div>
+            <div class="sc-metric-lbl">Overtakes</div>
+          </div>
+        </div>
+
+        <div class="sc-conf-bar-wrap">
+          <div class="sc-conf-bar" style="width:92%;background:#44aaff;"></div>
+        </div>
+
+        <ul class="sc-reasons">
+          <li>Requires precise headway — all paths pre-cleared</li>
+          <li>17613 uses alternate loop entry at Khadki, does not halt</li>
+          <li>Lower cumulative delay but needs co-ordination from Shivajinagar</li>
+          <li>Ideal if 17613 departure from Panvel is advanced by 15 min</li>
+        </ul>
+
+        <button class="sc-select-btn" style="--bc:#44aaff">▶ EXECUTE THIS PLAN</button>
+      </div>
+
+      <!-- Option C -->
+      <div class="sc-card" id="sc-card-C" onclick="selectScenario('C')">
+        <div class="sc-card-top">
+          <div class="sc-option-label">OPTION 3</div>
+          <div class="sc-badge" style="background:#ff664422;color:#ff6644;border-color:#ff664444">HIGH DELAY</div>
+        </div>
+        <div class="sc-card-title">VB Overtakes Both + Indrayani Delayed</div>
+        <div class="sc-card-sub">17613 &amp; 14806 halt &bull; Indrayani waits &bull; VB overtakes from PF3</div>
+
+        <div class="sc-metrics">
+          <div class="sc-metric">
+            <div class="sc-metric-val" style="color:#ff6644">70%</div>
+            <div class="sc-metric-lbl">AI Confidence</div>
+          </div>
+          <div class="sc-metric">
+            <div class="sc-metric-val" style="color:#ff4444">45 min</div>
+            <div class="sc-metric-lbl">Total Section Delay</div>
+          </div>
+          <div class="sc-metric">
+            <div class="sc-metric-val" style="color:#ff8800">3</div>
+            <div class="sc-metric-lbl">Trains Affected</div>
+          </div>
+        </div>
+
+        <div class="sc-conf-bar-wrap">
+          <div class="sc-conf-bar" style="width:70%;background:#ff6644;"></div>
+        </div>
+
+        <ul class="sc-reasons">
+          <li>14806 (P3) also held at Khadki PF2 — path conflict resolution</li>
+          <li>Indrayani (UP) must wait outside Khadki until VB clears PF3</li>
+          <li>VB overtakes both 17613 and 14806 simultaneously from PF3</li>
+          <li>Indrayani picks up 10–15 min delay due to PF3 occupation</li>
+        </ul>
+
+        <button class="sc-select-btn" style="--bc:#ff6644">▶ EXECUTE THIS PLAN</button>
+      </div>
+
+    </div><!-- /sc-cards -->
+
+    <div class="sc-footer">
+      &#9651; AI Traffic Control System &bull; Pune Division &bull; Central Railway &bull;
+      Predictions based on real-time train positions, signal states and historical section data
+    </div>
+
+  </div><!-- /sc-modal -->
+</div><!-- /sc-overlay -->
 
 </body>
 </html>

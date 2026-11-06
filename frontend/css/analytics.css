@@ -1,11 +1,17 @@
 /* ============================================================
    ANALYTICS.CSS – Analytics tab, tables, charts, AI insights
+   Fixes: chart horizontal overflow, PDF print layout,
+          table overflow, responsive grid
    ============================================================ */
 
+/* ── CONTAINER ─────────────────────────────────────────── */
 .analytics-container {
   padding: 14px;
   background: var(--bg-dark);
   min-height: calc(100vh - 104px);
+  /* Prevent anything inside from blowing past viewport */
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* ── TOP BAR ────────────────────────────────────────────── */
@@ -39,6 +45,10 @@
   border-radius: 6px;
   padding: 14px;
   margin-bottom: 12px;
+  /* Critical: prevents card from overflowing its grid cell */
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .a-card h3 {
@@ -48,28 +58,54 @@
   letter-spacing: 1px;
   border-bottom: 1px solid var(--border);
   padding-bottom: 6px;
+  /* Prevent h3 from stretching card */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* ── GRID ───────────────────────────────────────────────── */
 .analytics-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* Two equal columns, each respecting available space */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
   margin-bottom: 12px;
+  /* Ensure grid never overflows page */
+  max-width: 100%;
+  overflow: hidden;
 }
 
-.full-width { grid-column: 1 / -1; }
+.full-width {
+  grid-column: 1 / -1;
+}
 
-@media (max-width: 760px) {
-  .analytics-grid { grid-template-columns: 1fr; }
+/* Collapse to single column on smaller screens */
+@media (max-width: 860px) {
+  .analytics-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .full-width {
+    grid-column: 1;
+  }
 }
 
 /* ── TABLES ─────────────────────────────────────────────── */
-.table-scroll { overflow-x: auto; }
+/* Wrapper enables horizontal scroll without affecting card width */
+.table-scroll {
+  overflow-x: auto;
+  /* Needed so scroll stays inside card bounds */
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
 
 table {
+  /* Let table be as wide as needed; scroll wrapper handles overflow */
   width: 100%;
+  min-width: 600px;
   border-collapse: collapse;
   font-size: 11px;
+  /* noWrap ensures text stays on one line per cell */
   white-space: nowrap;
 }
 
@@ -81,6 +117,9 @@ thead th {
   font-size: 10px;
   letter-spacing: 1px;
   border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 tbody td {
@@ -89,7 +128,17 @@ tbody td {
   color: #ccdde8;
 }
 
-tbody tr:hover td { background: var(--bg-hover); }
+/* Cause column specifically – allow wrap so it doesn't blow out */
+tbody td:last-child {
+  white-space: normal;
+  min-width: 140px;
+  max-width: 220px;
+  word-break: break-word;
+}
+
+tbody tr:hover td {
+  background: var(--bg-hover);
+}
 
 tfoot td {
   padding: 7px 10px;
@@ -103,7 +152,18 @@ tfoot td {
 /* ── CHARTS ─────────────────────────────────────────────── */
 .chart-wrap {
   position: relative;
-  height: 220px;
+  height: 230px;
+  width: 100%;
+  text-align: center;       /* centers the inline-block canvas */
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Canvas size is set explicitly in JS (responsive:false).
+   inline-block + margin auto centers it within the wrapper. */
+.chart-wrap canvas {
+  display: inline-block;
+  margin: 0 auto;
 }
 
 /* ── STATION ANALYSIS GRIDS ─────────────────────────────── */
@@ -123,6 +183,9 @@ tfoot td {
   background: #081018;
   border-radius: 3px;
   border-left: 3px solid var(--border);
+  /* Allow text to wrap naturally */
+  white-space: normal;
+  word-break: break-word;
 }
 
 /* ── AI INSIGHTS ────────────────────────────────────────── */
@@ -137,7 +200,7 @@ tfoot td {
   transition: background 0.2s;
 }
 
-.ai-insight-item:hover { background: #0d1828; }
+.ai-insight-item:hover  { background: #0d1828; }
 .ai-insight-item.warning  { border-left-color: #ffaa00; }
 .ai-insight-item.critical { border-left-color: var(--red); }
 .ai-insight-item.success  { border-left-color: var(--green); }
@@ -152,6 +215,131 @@ tfoot td {
   font-size: 11px;
   line-height: 1.65;
   color: #aabbcc;
+  /* Let text wrap */
+  white-space: normal;
+  word-break: break-word;
+  min-width: 0;
 }
 
 .ai-text strong { color: #ddeeff; }
+
+/* ── SCENARIO BADGE in analytics (chosen scenario indicator) ── */
+.sc-chosen-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  border: 1px solid;
+}
+
+/* ── PDF / PRINT STYLES ─────────────────────────────────── */
+@media print {
+  /* Hide non-content elements */
+  #tab-nav,
+  .sim-controls,
+  .btn-pdf,
+  .live-indicator,
+  .live-dot,
+  #scenarioOverlay,
+  #tab-dapodi,
+  #tab-khadki {
+    display: none !important;
+  }
+
+  /* Force analytics section visible */
+  #tab-analytics {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+  }
+
+  /* White background for print */
+  body,
+  .analytics-container,
+  .tab-content {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Cards */
+  .a-card {
+    background: #fff !important;
+    border: 1px solid #ccc !important;
+    /* Each card on its own "block" – avoid splitting mid-card */
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 16px !important;
+  }
+
+  .a-card h3 {
+    color: #003366 !important;
+    border-color: #003366 !important;
+  }
+
+  /* Grid: go 1-column in print so charts are full-width and legible */
+  .analytics-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .full-width { grid-column: 1 !important; }
+
+  /* Charts: stacked, full-width, centered for print */
+  .chart-wrap {
+    height: 260px !important;
+    width: 100% !important;
+    max-width: 720px !important;
+    margin: 0 auto !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .chart-wrap canvas {
+    max-width: 100% !important;
+    margin: 0 auto !important;
+  }
+
+  /* Tables */
+  table {
+    font-size: 10px !important;
+    white-space: normal !important;
+  }
+  thead th {
+    background: #003366 !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  tbody td, tfoot td { color: #000 !important; }
+  .table-scroll { overflow-x: visible !important; }
+
+  /* Badges */
+  .badge-delay  { background: #fff3e0 !important; color: #e65100 !important; border: 1px solid #e65100 !important; }
+  .badge-ontime { background: #e8f5e9 !important; color: #2e7d32 !important; border: 1px solid #2e7d32 !important; }
+
+  /* Header for print */
+  #header {
+    background: #f0f4f8 !important;
+    border-color: #ccc !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  #header h1 { color: #003366 !important; text-shadow: none !important; }
+  .sim-clock  { color: #003366 !important; text-shadow: none !important; }
+
+  /* Analytics title */
+  .analytics-title    { color: #003366 !important; }
+  .analytics-subtitle { color: #444 !important; }
+  .stat-val { color: #003366 !important; }
+  .stat-lbl { color: #444 !important; }
+  .analysis-note { background: #f5f5f5 !important; color: #333 !important; border-color: #999 !important; }
+  .ai-insight-item { background: #f9f9f9 !important; }
+  .ai-text  { color: #333 !important; }
+  .ai-text strong { color: #000 !important; }
+
+  /* Page breaks before major sections */
+  .a-card.full-width + .analytics-grid { page-break-before: auto; }
+}
